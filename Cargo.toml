@@ -1,0 +1,17 @@
+[package]
+name = "physicaldice"
+version = "0.1.0"
+edition = "2024"
+
+[workspace]
+members = ["libpdice"]
+resolver = "2"
+
+[profile.release]
+panic = "abort"
+debug = 1
+overflow-checks = true
+lto = "thin"
+opt-level = 3
+
+[dependencies]
