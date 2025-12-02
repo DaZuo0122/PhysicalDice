@@ -8,7 +8,8 @@ members = ["libpdice"]
 resolver = "2"
 
 [package.metadata.deb]
-assets = ["target/release/roll", "usr/bin/", "755"]
+assets = ["$auto"]
+depends = "$auto"
 
 [profile.release]
 panic = "abort"
