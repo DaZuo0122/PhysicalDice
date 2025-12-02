@@ -1,11 +1,14 @@
 [package]
-name = "physicaldice"
+name = "roll"
 version = "0.1.0"
 edition = "2024"
 
 [workspace]
 members = ["libpdice"]
 resolver = "2"
+
+[package.metadata.deb]
+assets = ["target/release/roll", "usr/bin/", "755"]
 
 [profile.release]
 panic = "abort"
@@ -15,3 +18,7 @@ lto = "thin"
 opt-level = 3
 
 [dependencies]
+libpdice = { path = "./libpdice" }
+clap = { version = "4.0", features = ["derive"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
