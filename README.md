@@ -59,7 +59,7 @@ For Debian/Ubuntu user, it can be installed by:
 
 ```bash
 wget -q https://github.com/DaZuo0122/PhysicalDice/releases/latest/download/roll_x86_64.deb -O roll_x86_64.deb && sudo apt install -f ./roll_x86_64.deb
-
+```
 
 ## Building from Source
 
