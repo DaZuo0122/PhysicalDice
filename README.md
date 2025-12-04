@@ -8,6 +8,7 @@ Physical Dice is a realistic physics-based dice simulation tool that uses 3D rig
 - Support for standard dice (D4, D6, D8, D12, D20) and custom N-sided dice (4-254 sides)
 - Multiple output formats (text, JSON, CSV)
 - Batch rolling capabilities
+- Multi-thread support for batch processing
 - Configurable physics parameters
 - Convex polyhedral dice with proper mass and inertia calculations based on Mirtich (1996)
 
@@ -30,6 +31,7 @@ Roll multiple dice expressions simultaneously. The format is `{count}D{sides}`, 
 - `-v, --verbose` - Verbose output
 - `--mass <mass>` - Mass for each die (default: 0.17)
 - `--batch <batch>` - Number of rolls for batch mode (default: 1)
+- `-j, --num-threads` - Number of threads for batch processing (default: 1)
 
 ### Examples
 
@@ -58,7 +60,7 @@ The latest pre-built binary can be found at [here](https://github.com/DaZuo0122/
 For Debian/Ubuntu user, it can be installed by:
 
 ```bash
-wget -q https://github.com/DaZuo0122/PhysicalDice/releases/latest/download/roll_x86_64.deb -O roll_x86_64.deb && sudo apt install -f ./roll_x86_64.deb
+wget -q https://github.com/DaZuo0122/PhysicalDice/releases/latest/download/roll_x86_64_linux.deb -O roll_x86_64_linux.deb && sudo apt install -f ./roll_x86_64_linux.deb
 ```
 
 ## Building from Source
