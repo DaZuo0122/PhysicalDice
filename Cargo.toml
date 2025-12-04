@@ -23,3 +23,5 @@ libpdice = { path = "./libpdice" }
 clap = { version = "4.0", features = ["derive"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
+rayon = "1.10"
+num_cpus = "1.16"

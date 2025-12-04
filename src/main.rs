@@ -1,8 +1,11 @@
 use clap::Parser;
+use num_cpus;
+use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 
+
 /// CLI for Physical Dice Simulation
-#[derive(Parser, Debug)]
+#[derive(Parser, Debug, Clone)]
 #[command(author, version, about, long_about = None)]
 struct Args {
     /// Dice expressions to roll (format: 2D6, 1D20, etc.)
@@ -28,6 +31,10 @@ struct Args {
     /// Number of rolls for batch mode
     #[arg(long, default_value_t = 1)]
     batch: usize,
+
+    /// Number of threads for batch processing
+    #[arg(short = 'j', long, default_value_t = 1)]
+    num_threads: usize,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -489,54 +496,75 @@ fn convert_face_to_value(face_index: usize, sides: u32) -> u32 {
     (face_index % sides as usize) as u32 + 1
 }
 
-fn run_simulation(args: &Args) -> Result<Vec<SimulationResult>, Box<dyn std::error::Error>> {
-    let mut all_results = Vec::new();
+fn run_single_simulation(args: &Args) -> Result<SimulationResult, String> {
+    let mut scene = libpdice::Scene::new();
+    let mut roll_results = Vec::new();
 
-    for _batch in 0..args.batch {
-        let mut scene = libpdice::Scene::new();
-        let mut roll_results = Vec::new();
+    // Process all dice expressions
+    for expr in &args.dice_expressions {
+        let expr_upper = expr.to_uppercase();
+        let parts: Vec<&str> = expr_upper.split('D').collect();
+        let count: u32 = parts[0].parse().unwrap();
+        let sides: u32 = parts[1].parse().unwrap();
 
-        // Process all dice expressions
-        for expr in &args.dice_expressions {
-            let expr_upper = expr.to_uppercase();
-            let parts: Vec<&str> = expr_upper.split('D').collect();
-            let count: u32 = parts[0].parse().unwrap();
-            let sides: u32 = parts[1].parse().unwrap();
-
-            for _i in 0..count {
-                let poly = create_polyhedron_for_die(sides)?;
-                let die = libpdice::Die::new_from_poly(poly, args.mass)?;
-                scene.add_die(die);
-            }
-
-            // After adding all dice of this type, record their types for the result
-            for _i in 0..count {
-                roll_results.push(RollResult {
-                    die_type: format!("D{}", sides),
-                    value: 0, // Placeholder, will be updated after simulation
-                });
-            }
+        for _i in 0..count {
+            let poly = create_polyhedron_for_die(sides).map_err(|e| e.to_string())?;
+            let die = libpdice::Die::new_from_poly(poly, args.mass).map_err(|e| e.to_string())?;
+            scene.add_die(die);
         }
 
-        // Run the simulation
-        let results = scene.run_to_rest(args.time);
-
-        // Map the simulation results to die values
-        for (i, (face_index, _body)) in results.iter().enumerate() {
-            if i < roll_results.len() {
-                let sides = roll_results[i].die_type[1..].parse::<u32>().unwrap();
-                roll_results[i].value = convert_face_to_value(*face_index, sides);
-            }
+        // After adding all dice of this type, record their types for the result
+        for _i in 0..count {
+            roll_results.push(RollResult {
+                die_type: format!("D{}", sides),
+                value: 0, // Placeholder, will be updated after simulation
+            });
         }
-
-        let total: u32 = roll_results.iter().map(|r| r.value).sum();
-        all_results.push(SimulationResult {
-            results: roll_results,
-            total,
-        });
     }
 
-    Ok(all_results)
+    // Run the simulation
+    let results = scene.run_to_rest(args.time);
+
+    // Map the simulation results to die values
+    for (i, (face_index, _body)) in results.iter().enumerate() {
+        if i < roll_results.len() {
+            let sides = roll_results[i].die_type[1..].parse::<u32>().unwrap();
+            roll_results[i].value = convert_face_to_value(*face_index, sides);
+        }
+    }
+
+    let total: u32 = roll_results.iter().map(|r| r.value).sum();
+    Ok(SimulationResult {
+        results: roll_results,
+        total,
+    })
+}
+
+fn run_simulation(args: &Args) -> Result<Vec<SimulationResult>, Box<dyn std::error::Error>> {
+    // Limit thread count to the number of available logical CPUs
+    let effective_threads = std::cmp::min(args.num_threads, num_cpus::get());
+
+    if effective_threads > 1 && args.batch > 1 {
+        // Use parallel processing for batches
+        let args_for_parallel = args.clone(); // We'll need to make Args cloneable or pass values separately
+        let batch_range: Vec<usize> = (0..args.batch).collect();
+
+        let results: Vec<SimulationResult> = batch_range
+            .into_par_iter()
+            .map(|_batch| run_single_simulation(&args_for_parallel))
+            .collect::<Result<Vec<_>, _>>() // This collects the results, returning Err if any failed
+            .map_err(|e| Box::new(std::io::Error::new(std::io::ErrorKind::Other, e)) as Box<dyn std::error::Error>)?;
+
+        Ok(results)
+    } else {
+        // Use sequential processing
+        let mut all_results = Vec::new();
+        for _batch in 0..args.batch {
+            let result = run_single_simulation(args).map_err(|e| Box::new(std::io::Error::new(std::io::ErrorKind::Other, e)) as Box<dyn std::error::Error>)?;
+            all_results.push(result);
+        }
+        Ok(all_results)
+    }
 }
 
 fn format_output(results: Vec<SimulationResult>, output_format: &str) -> Result<String, Box<dyn std::error::Error>> {
